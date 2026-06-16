@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Reattempt Desk · DSA Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0e0c; --panel:#101613; --panel2:#0d1310; --line:#1d2723; --line2:#2a352f;
+    --ink:#e6efe9; --ink2:#8b9a92; --ink3:#5a6962;
+    --buy:#34d399; --buy-bg:#0f2e23; --buy-dim:#1c8765;
+    --sell:#f87171; --sell-bg:#2e1413; --sell-dim:#b3504a;
+    --hold:#fbbf24; --hold-bg:#2e2410; --hold-dim:#b08a2e;
+    --accent:#34d399;
+    --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+    --sans:'Space Grotesk',-apple-system,BlinkMacSystemFont,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    background:var(--bg);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(circle at 50% -10%, #11201a 0%, transparent 55%);
+    min-height:100vh;
+  }
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .wrap{max-width:1080px;margin:0 auto;padding:24px 18px 120px}
+
+  /* ===== Masthead ===== */
+  .mast{display:flex;justify-content:space-between;align-items:flex-end;
+    border-bottom:1px solid var(--line2);padding-bottom:16px;margin-bottom:22px;gap:16px;flex-wrap:wrap}
+  .mast h1{font-size:23px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+  .mast h1 .tick{color:var(--accent)}
+  .mast .sub{font-family:var(--mono);font-size:11px;color:var(--ink3);
+    letter-spacing:.14em;text-transform:uppercase;margin-top:5px}
+  .clock{font-family:var(--mono);font-size:12px;color:var(--ink2);text-align:right;line-height:1.7}
+  .clock .day{color:var(--ink);font-weight:500}
+  .sync{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;letter-spacing:.08em;
+    text-transform:uppercase;margin-top:4px}
+  .sync .dot{width:6px;height:6px;border-radius:50%;background:var(--ink3)}
+  .sync.live .dot{background:var(--buy);box-shadow:0 0 7px var(--buy)}
+  .sync.local .dot{background:var(--hold)}
+  .sync.live{color:var(--buy-dim)} .sync.local{color:var(--hold-dim)}
+
+  /* ===== Metric strip ===== */
+  .strip{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
+  .metric{background:var(--panel);padding:14px 16px}
+  .metric .k{font-family:var(--mono);font-size:10.5px;color:var(--ink3);
+    letter-spacing:.12em;text-transform:uppercase;margin-bottom:7px}
+  .metric .v{font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:-.01em}
+  .metric .v small{font-size:14px;color:var(--ink3);font-weight:400}
+  .metric .bar{height:3px;background:var(--line2);border-radius:2px;margin-top:9px;overflow:hidden}
+  .metric .bar span{display:block;height:100%;background:var(--accent);border-radius:2px;transition:width .5s ease}
+  .metric.gate .v{color:var(--accent)}
+  .metric.gate.warn .v{color:var(--hold)}
+
+  /* ===== Section headers ===== */
+  .shead{display:flex;align-items:center;gap:10px;margin:30px 0 13px}
+  .shead .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--ink2)}
+  .shead .rule{flex:1;height:1px;background:var(--line)}
+  .shead .ct{font-family:var(--mono);font-size:11px;color:var(--ink3)}
+
+  /* ===== Due queue (the centerpiece) ===== */
+  .queue{border:1px solid var(--sell-dim);border-radius:12px;overflow:hidden;
+    background:linear-gradient(180deg,var(--sell-bg) 0%, var(--panel) 60%)}
+  .queue.empty{border-color:var(--line2);background:var(--panel)}
+  .qhead{display:flex;align-items:center;gap:9px;padding:13px 16px;border-bottom:1px solid var(--line)}
+  .qhead .pulse{width:8px;height:8px;border-radius:50%;background:var(--sell);
+    box-shadow:0 0 0 0 var(--sell);animation:pulse 1.8s infinite}
+  .queue.empty .pulse{background:var(--buy);animation:none;box-shadow:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(248,113,113,.5)}70%{box-shadow:0 0 0 9px rgba(248,113,113,0)}100%{box-shadow:0 0 0 0 rgba(248,113,113,0)}}
+  .qhead .qt{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:500}
+  .qhead .qn{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--sell)}
+  .queue.empty .qn{color:var(--buy)}
+  .qrow{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+  .qrow:last-child{border-bottom:none}
+  .qrow:hover{background:rgba(255,255,255,.025)}
+  .qrow .pat{font-family:var(--mono);font-size:10px;color:var(--ink3);width:108px;flex-shrink:0;
+    letter-spacing:.04em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .qrow .nm{flex:1;font-size:14px;font-weight:500}
+  .qrow .od{font-family:var(--mono);font-size:11px;color:var(--sell);flex-shrink:0}
+  .qrow .go{font-family:var(--mono);font-size:11px;color:var(--ink3);flex-shrink:0;
+    border:1px solid var(--line2);border-radius:5px;padding:3px 9px}
+  .qrow:hover .go{color:var(--accent);border-color:var(--buy-dim)}
+  .qempty{padding:22px 16px;text-align:center;color:var(--ink2);font-size:13.5px}
+  .qempty b{color:var(--buy);font-weight:600}
+
+  /* ===== Pattern accordions ===== */
+  .pat-card{border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden;background:var(--panel2)}
+  .pat-top{display:flex;align-items:center;gap:13px;padding:13px 16px;cursor:pointer;user-select:none}
+  .pat-top:hover{background:rgba(255,255,255,.02)}
+  .pat-wk{font-family:var(--mono);font-size:10px;color:var(--ink3);border:1px solid var(--line2);
+    border-radius:5px;padding:2px 7px;flex-shrink:0;letter-spacing:.04em}
+  .pat-nm{font-size:15px;font-weight:600;flex:1}
+  .pat-stat{font-family:var(--mono);font-size:12px;color:var(--ink2);flex-shrink:0}
+  .pat-ring{width:30px;height:30px;flex-shrink:0;transform:rotate(-90deg)}
+  .pat-ring circle{fill:none;stroke-width:3.5}
+  .pat-ring .bg{stroke:var(--line2)} .pat-ring .fg{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .5s}
+  .chev{color:var(--ink3);font-size:11px;transition:transform .2s;flex-shrink:0}
+  .pat-card.open .chev{transform:rotate(90deg)}
+  .pat-body{display:none;border-top:1px solid var(--line)}
+  .pat-card.open .pat-body{display:block}
+
+  .prow{display:grid;grid-template-columns:22px 1fr auto;gap:11px;align-items:center;
+    padding:9px 16px;border-bottom:1px solid var(--line);transition:background .1s}
+  .prow:last-child{border-bottom:none}
+  .prow:hover{background:rgba(255,255,255,.018)}
+  .prow.done{opacity:.62}
+  .dot-diff{width:7px;height:7px;border-radius:50%;justify-self:center}
+  .d-E{background:var(--buy)} .d-M{background:var(--hold)} .d-H{background:var(--sell)}
+  .prow .pn{font-size:13.5px;cursor:pointer;display:flex;align-items:center;gap:8px;min-width:0}
+  .prow .pn .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow.done .pn .txt{text-decoration:line-through;text-decoration-color:var(--ink3)}
+  .prow .lc-link{flex:none;font-family:var(--mono);font-size:11px;line-height:1;color:var(--ink3);
+    text-decoration:none;opacity:0;transition:opacity .12s,color .12s;cursor:pointer}
+  .prow:hover .lc-link{opacity:.7}
+  .prow .lc-link:hover{opacity:1;color:var(--accent)}
+  .conf{display:flex;gap:3px}
+  .conf i{width:13px;height:4px;border-radius:1px;background:var(--line2);cursor:pointer;transition:background .12s}
+  .conf i.on{background:var(--accent)}
+  .conf i.lo.on{background:var(--sell)} .conf i.mid.on{background:var(--hold)}
+  .prow .meta{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;color:var(--ink3);justify-self:end}
+  .gate-tag{padding:2px 7px;border-radius:5px;font-size:10px;letter-spacing:.04em}
+  .gate-pass{background:var(--buy-bg);color:var(--buy)} .gate-fail{background:var(--sell-bg);color:var(--sell)}
+  .prow .log-btn{font-family:var(--mono);font-size:10.5px;color:var(--ink3);border:1px solid var(--line2);
+    border-radius:5px;padding:3px 8px;cursor:pointer;white-space:nowrap}
+  .prow .log-btn:hover{color:var(--accent);border-color:var(--buy-dim)}
+
+  /* ===== Log modal ===== */
+  .scrim{position:fixed;inset:0;background:rgba(4,7,5,.72);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
+  .scrim.show{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;
+    width:100%;max-width:440px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .mhead{padding:16px 18px;border-bottom:1px solid var(--line)}
+  .mhead .mp{font-family:var(--mono);font-size:10.5px;color:var(--ink3);letter-spacing:.1em;text-transform:uppercase}
+  .mhead .mn{font-size:17px;font-weight:600;margin-top:3px}
+  .mbody{padding:17px 18px;display:flex;flex-direction:column;gap:16px}
+  .fld .fl{font-family:var(--mono);font-size:11px;color:var(--ink2);letter-spacing:.06em;
+    text-transform:uppercase;margin-bottom:9px;display:block}
+  .seg{display:flex;gap:7px}
+  .seg button{flex:1;font-family:var(--mono);font-size:12px;padding:9px 0;border-radius:7px;
+    border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);cursor:pointer;transition:all .12s}
+  .seg button:hover{border-color:var(--ink3)}
+  .seg button.sel{background:var(--buy-bg);border-color:var(--buy-dim);color:var(--buy)}
+  .seg.gatesel button.sel.fail{background:var(--sell-bg);border-color:var(--sell-dim);color:var(--sell)}
+  .conf-pick{display:flex;gap:6px}
+  .conf-pick button{flex:1;font-family:var(--mono);font-size:13px;padding:9px 0;border-radius:7px;
+    border:1px solid var(--line2);background:var(--panel2);color:var(--ink2);cursor:pointer}
+  .conf-pick button.sel{background:var(--buy-bg);border-color:var(--buy-dim);color:var(--buy)}
+  .mbody input[type=text],.mbody textarea{width:100%;background:var(--panel2);border:1px solid var(--line2);
+    border-radius:7px;color:var(--ink);font-family:var(--sans);font-size:13.5px;padding:10px 12px;resize:vertical}
+  .mbody input:focus,.mbody textarea:focus{outline:none;border-color:var(--buy-dim)}
+  .mfoot{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  .btn{font-family:var(--mono);font-size:12px;padding:9px 16px;border-radius:7px;cursor:pointer;border:1px solid var(--line2);
+    background:var(--panel2);color:var(--ink2);letter-spacing:.04em}
+  .btn:hover{border-color:var(--ink3)}
+  .btn.primary{background:var(--buy);border-color:var(--buy);color:#04140d;font-weight:600}
+  .btn.primary:hover{background:#42e0a8}
+  .hint{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-top:7px;line-height:1.5}
+
+  /* ===== Setup banner ===== */
+  .setup{border:1px dashed var(--hold-dim);background:var(--hold-bg);border-radius:10px;
+    padding:13px 16px;margin-bottom:20px;font-size:12.5px;color:var(--hold);display:flex;gap:11px;align-items:flex-start}
+  .setup code{font-family:var(--mono);font-size:11.5px;background:rgba(0,0,0,.3);padding:1px 5px;border-radius:4px;color:#ffd97a}
+  .setup .x{margin-left:auto;cursor:pointer;color:var(--hold-dim);font-size:16px;line-height:1;flex-shrink:0}
+  .setup a{color:#ffd97a}
+
+  /* ===== Footer controls ===== */
+  .controls{display:flex;gap:10px;justify-content:center;margin-top:32px;flex-wrap:wrap}
+  .foot{text-align:center;font-family:var(--mono);font-size:11px;color:var(--ink3);
+    margin-top:26px;letter-spacing:.06em;line-height:1.8}
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);
+    background:var(--panel);border:1px solid var(--buy-dim);color:var(--buy);font-family:var(--mono);
+    font-size:12px;padding:11px 18px;border-radius:9px;opacity:0;transition:all .25s;z-index:60;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  @media(max-width:680px){
+    .strip{grid-template-columns:repeat(2,1fr)}
+    .qrow .pat{display:none}
+    .clock{text-align:left}
+    .mast{align-items:flex-start}
+    .prow{grid-template-columns:18px 1fr;gap:9px}
+    .prow .meta{grid-column:2;justify-self:start;margin-top:2px}
+  }
+  @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="mast">
+    <div>
+      <h1>The Reattempt <span class="tick">Desk</span></h1>
+      <div class="sub">NeetCode 150 · Reactivate Phase · Manual, zero-AI</div>
+    </div>
+    <div class="clock">
+      <div class="day" id="clkDay">—</div>
+      <div id="clkDate">—</div>
+      <div class="sync local" id="syncBadge"><span class="dot"></span><span id="syncTxt">Local</span></div>
+    </div>
+  </div>
+
+  <div class="setup" id="setupBanner" style="display:none">
+    <div>
+      <b>Running on local storage.</b> Your progress saves in this browser only. To sync across phone + laptop,
+      open <code>config.js</code> and paste your Supabase URL + anon key. Setup steps are in <code>README.md</code> — about 5 minutes.
+    </div>
+    <span class="x" onclick="document.getElementById('setupBanner').style.display='none'">×</span>
+  </div>
+
+  <div class="strip" id="strip"></div>
+
+  <div class="shead">
+    <span class="lbl">Due for re-attempt</span><span class="rule"></span>
+    <span class="ct" id="dueCt"></span>
+  </div>
+  <div id="queueMount"></div>
+
+  <div class="shead">
+    <span class="lbl">The 150 · by pattern</span><span class="rule"></span>
+    <span class="ct" id="patCt"></span>
+  </div>
+  <div id="patMount"></div>
+
+  <div class="controls">
+    <button class="btn" onclick="expandAll(true)">Expand all</button>
+    <button class="btn" onclick="expandAll(false)">Collapse all</button>
+    <button class="btn" onclick="exportData()">Export JSON</button>
+    <button class="btn" onclick="document.getElementById('importFile').click()">Import JSON</button>
+    <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
+  </div>
+  <div class="foot">
+    Re-attempt rule · miss the 25-min gate → resurfaces in 3 days<br>
+    Become the system, not the goal · Jun 15 2026 → Jan 15 2027
+  </div>
+</div>
+
+<!-- Log modal -->
+<div class="scrim" id="scrim">
+  <div class="modal">
+    <div class="mhead">
+      <div class="mp" id="mPat">—</div>
+      <div class="mn" id="mName">—</div>
+    </div>
+    <div class="mbody">
+      <div class="fld">
+        <label class="fl">Did you pass the 25-min gate? (unassisted)</label>
+        <div class="seg gatesel" id="gateSeg">
+          <button data-g="pass" class="sel">Solved &lt; 25 min</button>
+          <button data-g="fail" class="fail">Missed it</button>
+        </div>
+      </div>
+      <div class="fld">
+        <label class="fl">Pattern clicked? — confidence</label>
+        <div class="conf-pick" id="confPick">
+          <button data-c="1">1</button><button data-c="2">2</button>
+          <button data-c="3" class="sel">3</button><button data-c="4">4</button><button data-c="5">5</button>
+        </div>
+        <div class="hint">1 = brute-forced / no idea · 5 = saw the pattern instantly</div>
+      </div>
+      <div class="fld">
+        <label class="fl">Solve time (min) — optional</label>
+        <input type="text" id="mTime" inputmode="numeric" placeholder="e.g. 18">
+      </div>
+      <div class="fld">
+        <label class="fl">What tripped you up? — optional</label>
+        <textarea id="mNote" rows="2" placeholder="e.g. forgot to handle the empty-window edge case"></textarea>
+      </div>
+      <div class="hint" id="nextHint"></div>
+    </div>
+    <div class="mfoot">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn primary" onclick="saveLog()">Log attempt</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="neetcode150.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
