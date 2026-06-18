@@ -113,13 +113,16 @@
   .prow.done{opacity:.62}
   .dot-diff{width:7px;height:7px;border-radius:50%;justify-self:center}
   .d-E{background:var(--buy)} .d-M{background:var(--hold)} .d-H{background:var(--sell)}
-  .prow .pn{font-size:13.5px;cursor:pointer;display:flex;align-items:center;gap:8px;min-width:0}
-  .prow .pn .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prow .pn{font-size:13.5px;display:flex;align-items:center;gap:9px;min-width:0}
+  .prow .pn .txt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
   .prow.done .pn .txt{text-decoration:line-through;text-decoration-color:var(--ink3)}
-  .prow .lc-link{flex:none;font-family:var(--mono);font-size:11px;line-height:1;color:var(--ink3);
-    text-decoration:none;opacity:0;transition:opacity .12s,color .12s;cursor:pointer}
-  .prow:hover .lc-link{opacity:.7}
-  .prow .lc-link:hover{opacity:1;color:var(--accent)}
+  .prow .pn .links{flex:none;display:inline-flex;align-items:center;gap:7px}
+  .prow .ext-link{flex:none;display:inline-flex;align-items:center;line-height:0;
+    text-decoration:none;opacity:.9;transition:opacity .12s,transform .12s}
+  .prow .ext-link svg{display:block}
+  .prow .ext-link.lc{color:#ffa116}
+  .prow .ext-link.nc{color:var(--accent)}
+  .prow .ext-link:hover{opacity:1;transform:translateY(-1px) scale(1.08)}
   .conf{display:flex;gap:3px}
   .conf i{width:13px;height:4px;border-radius:1px;background:var(--line2);cursor:pointer;transition:background .12s}
   .conf i.on{background:var(--accent)}
@@ -267,6 +270,7 @@
       <div class="fld">
         <label class="fl">Solve time (min) — optional</label>
         <input type="text" id="mTime" inputmode="numeric" placeholder="e.g. 18">
+        <div class="hint">Over 25 min auto-marks the gate as <b style="color:var(--sell)">missed</b>.</div>
       </div>
       <div class="fld">
         <label class="fl">What tripped you up? — optional</label>

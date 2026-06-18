@@ -9,6 +9,7 @@
 
 const GATE_MISS_DAYS = 3;
 const GATE_PASS_DAYS = 14;
+const GATE_MINUTES   = 25;   // the unassisted solve-time gate
 const DATA = window.NEETCODE_150;
 const CFG  = window.TRACKER_CONFIG || {};
 const KEY  = "reattempt_desk_v1";
@@ -32,6 +33,16 @@ function leetcodeURL(name){
     name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
   return `https://leetcode.com/problems/${slug}/`;
 }
+/* NeetCode publishes a solution walkthrough video for every problem. Its site
+   uses bespoke slugs that don't map cleanly from the name, so route to a
+   YouTube search scoped to the channel — reliably surfaces the exact video. */
+function neetcodeURL(name){
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent('NeetCode ' + name)}`;
+}
+
+/* inline brand marks (currentColor so CSS sets the tint) */
+const LC_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M13.483 0a1.374 1.374 0 0 0-.961.438L7.116 6.226l-3.854 4.126a5.266 5.266 0 0 0-1.209 2.104 5.35 5.35 0 0 0-.125.513 5.527 5.527 0 0 0 .062 2.362 5.83 5.83 0 0 0 .349 1.017 5.938 5.938 0 0 0 1.271 1.818l4.277 4.193.039.038c2.248 2.165 5.852 2.133 8.063-.074l2.396-2.392c.54-.54.54-1.414.003-1.955a1.378 1.378 0 0 0-1.951-.003l-2.396 2.392a3.021 3.021 0 0 1-4.205.038l-.02-.019-4.276-4.193c-.652-.64-.972-1.469-.948-2.263a2.68 2.68 0 0 1 .066-.523 2.545 2.545 0 0 1 .619-1.164L9.13 8.114c1.058-1.134 3.204-1.27 4.43-.278l3.501 2.831c.593.48 1.461.387 1.94-.207a1.384 1.384 0 0 0-.207-1.943l-3.5-2.831c-.8-.647-1.766-1.045-2.774-1.202l2.015-2.158A1.384 1.384 0 0 0 13.483 0zm-2.866 12.815a1.38 1.38 0 0 0-1.38 1.382 1.38 1.38 0 0 0 1.38 1.382H20.79a1.38 1.38 0 0 0 1.38-1.382 1.38 1.38 0 0 0-1.38-1.382z"/></svg>`;
+const NC_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5.5" fill="currentColor"/><path d="M10 8.2l6 3.8-6 3.8z" fill="#08110d"/></svg>`;
 
 /* ---------- date helpers ---------- */
 const todayISO = () => new Date().toISOString().slice(0,10);
@@ -194,10 +205,14 @@ function rowHTML(nm,df,pat){
   }
   return `<div class="prow ${done?'done':''}" data-nm="${esc(nm)}">
     <span class="dot-diff d-${df}" title="${df==='E'?'Easy':df==='M'?'Medium':'Hard'}"></span>
-    <span class="pn" onclick="openModal('${esc(nm)}','${esc(pat)}')">
-      <span class="txt">${nm}</span>
-      <a class="lc-link" href="${leetcodeURL(nm)}" target="_blank" rel="noopener"
-         title="Open on LeetCode" onclick="event.stopPropagation()">↗</a>
+    <span class="pn">
+      <span class="txt" onclick="openModal('${esc(nm)}','${esc(pat)}')">${nm}</span>
+      <span class="links">
+        <a class="ext-link lc" href="${leetcodeURL(nm)}" target="_blank" rel="noopener"
+           title="Open on LeetCode" onclick="event.stopPropagation()">${LC_ICON}</a>
+        <a class="ext-link nc" href="${neetcodeURL(nm)}" target="_blank" rel="noopener"
+           title="Watch NeetCode solution" onclick="event.stopPropagation()">${NC_ICON}</a>
+      </span>
     </span>
     <span class="meta">${meta}<span class="log-btn" onclick="openModal('${esc(nm)}','${esc(pat)}')">${done?'edit':'log'}</span></span>
   </div>`;
@@ -247,11 +262,20 @@ document.addEventListener('click',e=>{
   if(c){ mConf=+c.dataset.c; syncSegs(); }
 });
 document.getElementById('scrim').addEventListener('click',e=>{ if(e.target.id==='scrim') closeModal(); });
+// typing a solve time drives the 25-min gate so it can never disagree with the clock
+document.getElementById('mTime').addEventListener('input',e=>{
+  const t=parseInt(e.target.value,10);
+  if(isNaN(t)) return;
+  mGate = t > GATE_MINUTES ? 'fail' : 'pass';
+  syncSegs(); updateNextHint();
+});
 
 async function saveLog(){
   if(!modalTarget) return;
   const nm=modalTarget.name;
   const t=parseInt(document.getElementById('mTime').value);
+  // a recorded solve time is the source of truth for the 25-min gate
+  if(!isNaN(t)) mGate = t > GATE_MINUTES ? 'fail' : 'pass';
   const prev=state[nm]||{attempts:0};
   const rec={
     done:true, gate:mGate, conf:mConf,
