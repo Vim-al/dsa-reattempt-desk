@@ -44,10 +44,14 @@ function neetcodeURL(name){
 const LC_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M13.483 0a1.374 1.374 0 0 0-.961.438L7.116 6.226l-3.854 4.126a5.266 5.266 0 0 0-1.209 2.104 5.35 5.35 0 0 0-.125.513 5.527 5.527 0 0 0 .062 2.362 5.83 5.83 0 0 0 .349 1.017 5.938 5.938 0 0 0 1.271 1.818l4.277 4.193.039.038c2.248 2.165 5.852 2.133 8.063-.074l2.396-2.392c.54-.54.54-1.414.003-1.955a1.378 1.378 0 0 0-1.951-.003l-2.396 2.392a3.021 3.021 0 0 1-4.205.038l-.02-.019-4.276-4.193c-.652-.64-.972-1.469-.948-2.263a2.68 2.68 0 0 1 .066-.523 2.545 2.545 0 0 1 .619-1.164L9.13 8.114c1.058-1.134 3.204-1.27 4.43-.278l3.501 2.831c.593.48 1.461.387 1.94-.207a1.384 1.384 0 0 0-.207-1.943l-3.5-2.831c-.8-.647-1.766-1.045-2.774-1.202l2.015-2.158A1.384 1.384 0 0 0 13.483 0zm-2.866 12.815a1.38 1.38 0 0 0-1.38 1.382 1.38 1.38 0 0 0 1.38 1.382H20.79a1.38 1.38 0 0 0 1.38-1.382 1.38 1.38 0 0 0-1.38-1.382z"/></svg>`;
 const NC_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="5.5" fill="currentColor"/><path d="M10 8.2l6 3.8-6 3.8z" fill="#08110d"/></svg>`;
 
-/* ---------- date helpers ---------- */
-const todayISO = () => new Date().toISOString().slice(0,10);
-function addDays(iso, n){ const d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); }
-function daysBetween(a,b){ return Math.round((new Date(b)-new Date(a))/86400000); }
+/* ---------- date helpers ----------
+   All dates are local-calendar ISO (YYYY-MM-DD). Mixing UTC (toISOString) with
+   local parsing shifts dueAt by a day in non-UTC zones — e.g. IST surfaced
+   every re-attempt a day early — so format from local fields throughout. */
+const fmtLocal = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+const todayISO = () => fmtLocal(new Date());
+function addDays(iso, n){ const d = new Date(iso+"T00:00:00"); d.setDate(d.getDate()+n); return fmtLocal(d); }
+function daysBetween(a,b){ return Math.round((new Date(b+"T00:00:00")-new Date(a+"T00:00:00"))/86400000); }
 function isDue(rec){ return rec && rec.dueAt && rec.dueAt <= todayISO(); }
 
 /* ---------- supabase (optional) ---------- */
@@ -96,14 +100,17 @@ async function persist(name){
 
 /* ---------- metrics ---------- */
 function metrics(){
-  let solved=0, gatePass=0, gateLogged=0, dueNow=0, total=0;
+  const today = todayISO();
+  let solved=0, gatePass=0, gateLogged=0, dueNow=0, overdue=0, total=0, nextDue=null;
   DATA.forEach(p=>p.problems.forEach(([nm])=>{
     total++; const r=state[nm];
     if(r&&r.done){ solved++; gateLogged++; if(r.gate==='pass') gatePass++; }
-    if(isDue(r)) dueNow++;
+    if(isDue(r)){ dueNow++; if(r.dueAt < today) overdue++; }
+    else if(r && r.dueAt && r.dueAt > today && (!nextDue || r.dueAt < nextDue)){ nextDue = r.dueAt; }
   }));
   const rate = gateLogged ? Math.round(gatePass/gateLogged*100) : 0;
-  return { solved, total, rate, gateLogged, dueNow };
+  const nextInDays = nextDue ? daysBetween(today, nextDue) : null;
+  return { solved, total, rate, gateLogged, dueNow, overdue, nextDue, nextInDays };
 }
 
 /* ---------- render: metric strip ---------- */
@@ -111,6 +118,29 @@ function renderStrip(){
   const m = metrics();
   const pct = Math.round(m.solved/m.total*100);
   const gateWarn = m.gateLogged>=5 && m.rate<70;
+  // The re-attempt queue already shows what's due *now*; this tile earns its keep
+  // by answering the question the queue can't when it's empty — "when's the next
+  // one, and am I behind?" — instead of echoing the queue count.
+  let dueTile;
+  if(m.dueNow){
+    dueTile = `<div class="metric">
+      <div class="k">Due now</div>
+      <div class="v" style="color:var(--sell)">${m.dueNow}</div>
+      <div class="sub">${m.overdue?`${m.overdue} overdue`:'none overdue'}</div>
+    </div>`;
+  } else if(m.nextInDays!=null){
+    dueTile = `<div class="metric">
+      <div class="k">Next resurfaces</div>
+      <div class="v">${m.nextInDays===0?'today':`${m.nextInDays}<small>d</small>`}</div>
+      <div class="sub">${m.nextDue}</div>
+    </div>`;
+  } else {
+    dueTile = `<div class="metric">
+      <div class="k">Re-attempts</div>
+      <div class="v" style="color:var(--ink3)">—</div>
+      <div class="sub">none scheduled</div>
+    </div>`;
+  }
   document.getElementById('strip').innerHTML = `
     <div class="metric">
       <div class="k">Solved</div>
@@ -122,11 +152,7 @@ function renderStrip(){
       <div class="v">${m.rate}<small>%</small></div>
       <div class="bar"><span style="width:${m.rate}%"></span></div>
     </div>
-    <div class="metric">
-      <div class="k">Due today</div>
-      <div class="v" style="${m.dueNow?'color:var(--sell)':''}">${m.dueNow}</div>
-      <div class="bar"><span style="width:${m.dueNow?100:0}%;background:var(--sell)"></span></div>
-    </div>
+    ${dueTile}
     <div class="metric">
       <div class="k">Logged attempts</div>
       <div class="v">${m.gateLogged}</div>
@@ -333,7 +359,7 @@ function clock(){
   const d=new Date();
   const days=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
   document.getElementById('clkDay').textContent=days[d.getDay()];
-  document.getElementById('clkDate').textContent=d.toISOString().slice(0,10);
+  document.getElementById('clkDate').textContent=fmtLocal(d);
 }
 
 function renderAll(){ renderStrip(); renderQueue(); renderPatterns(); }
