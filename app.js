@@ -276,7 +276,14 @@ function escHTML(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
 function renderHistory(r){
   const fld=document.getElementById('histFld');
   const list=document.getElementById('histList');
-  const hist=(r&&Array.isArray(r.history))?r.history:[];
+  let hist=(r&&Array.isArray(r.history))?r.history:[];
+  // Display-time backfill: a problem logged before history existed has no
+  // history array yet (it gets persisted on the next real save). Synthesize
+  // its existing attempt as v1 so the section is visible right away.
+  if(!hist.length && r && r.done){
+    hist=[{ at:r.lastAt||todayISO(), gate:r.gate, conf:r.conf,
+            time:(r.time??null), note:r.note||'' }];
+  }
   if(!hist.length){ fld.style.display='none'; list.innerHTML=''; return; }
   fld.style.display='block';
   document.getElementById('histCt').textContent =
