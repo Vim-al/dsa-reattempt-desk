@@ -141,11 +141,26 @@
     display:none;align-items:center;justify-content:center;z-index:50;padding:18px}
   .scrim.show{display:flex}
   .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;
-    width:100%;max-width:440px;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
-  .mhead{padding:16px 18px;border-bottom:1px solid var(--line)}
+    width:100%;max-width:480px;max-height:92vh;display:flex;flex-direction:column;
+    overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .mhead{padding:16px 18px;border-bottom:1px solid var(--line);flex-shrink:0}
   .mhead .mp{font-family:var(--mono);font-size:10.5px;color:var(--ink3);letter-spacing:.1em;text-transform:uppercase}
   .mhead .mn{font-size:17px;font-weight:600;margin-top:3px}
-  .mbody{padding:17px 18px;display:flex;flex-direction:column;gap:16px}
+  .mbody{padding:17px 18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto}
+  .mbody textarea.notes{min-height:150px;line-height:1.55}
+
+  /* ===== Version history timeline ===== */
+  .hist{display:flex;flex-direction:column;gap:8px;max-height:260px;overflow-y:auto;
+    padding-right:2px}
+  .hist .hv{border:1px solid var(--line2);border-radius:8px;background:var(--panel2);padding:9px 11px}
+  .hist .hvh{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:10.5px}
+  .hist .hv-n{color:var(--ink3);letter-spacing:.06em}
+  .hist .hvh .when{color:var(--ink2)}
+  .hist .hgate{padding:1px 6px;border-radius:4px;font-size:9.5px;letter-spacing:.04em}
+  .hist .v-conf{margin-left:auto;color:var(--accent);letter-spacing:.12em;font-size:10px}
+  .hist .hnote{font-size:12.5px;color:var(--ink);margin-top:7px;white-space:pre-wrap;line-height:1.5}
+  .hist .hnote.empty{color:var(--ink3);font-style:italic}
+  .prow .meta .att{color:var(--ink2)}
   .fld .fl{font-family:var(--mono);font-size:11px;color:var(--ink2);letter-spacing:.06em;
     text-transform:uppercase;margin-bottom:9px;display:block}
   .seg{display:flex;gap:7px}
@@ -275,8 +290,12 @@
         <div class="hint">Over 25 min auto-marks the gate as <b style="color:var(--sell)">missed</b>.</div>
       </div>
       <div class="fld">
-        <label class="fl">What tripped you up? — optional</label>
-        <textarea id="mNote" rows="2" placeholder="e.g. forgot to handle the empty-window edge case"></textarea>
+        <label class="fl">Notes</label>
+        <textarea id="mNote" class="notes" rows="7" placeholder="Approach taken, the key insight, edge cases, what tripped you up, what to remember for the re-attempt…"></textarea>
+      </div>
+      <div class="fld" id="histFld" style="display:none">
+        <label class="fl">Version history · <span id="histCt" style="color:var(--ink3)"></span></label>
+        <div class="hist" id="histList"></div>
       </div>
       <div class="hint" id="nextHint"></div>
     </div>

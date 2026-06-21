@@ -2,7 +2,10 @@
    The Reattempt Desk — app logic
    State model: records keyed by problem name.
    record = { done, gate:'pass'|'fail', conf:1-5, time:int|null,
-              note:str, lastAt:ISO, dueAt:ISO|null, attempts:int }
+              note:str, lastAt:ISO, dueAt:ISO|null, attempts:int,
+              history:[ {at:ISO, gate, conf, time, note} ] }
+   history holds one entry per logged attempt (oldest first); the top-level
+   gate/conf/time/note mirror the most recent entry for rendering + metrics.
    Re-attempt rule: miss the 25-min gate -> dueAt = today + 3 days.
    Pass -> light spaced check at +14 days. Cleared when re-passed.
    ========================================================================= */
@@ -76,7 +79,8 @@ async function loadState(){
       state = {};
       (data||[]).forEach(r=>{ state[r.problem] = {
         done:r.done, gate:r.gate, conf:r.conf, time:r.time, note:r.note||"",
-        lastAt:r.last_at, dueAt:r.due_at, attempts:r.attempts||1 }; });
+        lastAt:r.last_at, dueAt:r.due_at, attempts:r.attempts||1,
+        history:Array.isArray(r.history)?r.history:[] }; });
       setSync('live'); return;
     }catch(e){ console.warn("Supabase read failed, local fallback:", e); sb=null; }
   }
@@ -92,7 +96,8 @@ async function persist(name){
     try{
       await sb.from('attempts').upsert({
         problem:name, done:r.done, gate:r.gate, conf:r.conf, time:r.time,
-        note:r.note, last_at:r.lastAt, due_at:r.dueAt, attempts:r.attempts
+        note:r.note, last_at:r.lastAt, due_at:r.dueAt, attempts:r.attempts,
+        history:r.history||[]
       }, { onConflict:'problem' });
     }catch(e){ console.warn("Supabase write failed (saved locally):", e); }
   }
@@ -227,7 +232,8 @@ function rowHTML(nm,df,pat){
       ? '<span class="gate-tag gate-pass">≤25m</span>'
       : '<span class="gate-tag gate-fail">missed</span>';
     meta = `${tag}<div class="conf" title="confidence">${confBars}</div>` +
-           (r.time?`<span>${r.time}m</span>`:'');
+           (r.time?`<span>${r.time}m</span>`:'') +
+           (r.attempts>1?`<span class="att" title="${r.attempts} logged attempts">×${r.attempts}</span>`:'');
   }
   return `<div class="prow ${done?'done':''}" data-nm="${esc(nm)}">
     <span class="dot-diff d-${df}" title="${df==='E'?'Easy':df==='M'?'Medium':'Hard'}"></span>
@@ -260,9 +266,40 @@ function openModal(name,pattern){
   document.getElementById('mName').textContent=name;
   document.getElementById('mTime').value=r.time||'';
   document.getElementById('mNote').value=r.note||'';
+  renderHistory(r);
   syncSegs();
   updateNextHint();
   document.getElementById('scrim').classList.add('show');
+}
+/* ---------- version history (inside the log modal) ---------- */
+function escHTML(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderHistory(r){
+  const fld=document.getElementById('histFld');
+  const list=document.getElementById('histList');
+  const hist=(r&&Array.isArray(r.history))?r.history:[];
+  if(!hist.length){ fld.style.display='none'; list.innerHTML=''; return; }
+  fld.style.display='block';
+  document.getElementById('histCt').textContent =
+    hist.length+(hist.length>1?' versions':' version');
+  // newest first; number them oldest=v1 so the progression reads naturally
+  list.innerHTML = hist.map((h,i)=>({h,v:i+1})).reverse().map(({h,v})=>{
+    const gate = h.gate==='pass'
+      ? '<span class="hgate gate-pass">≤25m</span>'
+      : '<span class="hgate gate-fail">missed</span>';
+    const conf = h.conf ? '●'.repeat(h.conf)+'○'.repeat(5-h.conf) : '○○○○○';
+    const time = h.time!=null ? ` · ${h.time}m` : '';
+    const note = h.note
+      ? `<div class="hnote">${escHTML(h.note)}</div>`
+      : `<div class="hnote empty">no notes</div>`;
+    return `<div class="hv">
+      <div class="hvh">
+        <span class="hv-n">v${v}</span>${gate}
+        <span class="when">${h.at}${time}</span>
+        <span class="v-conf" title="confidence ${h.conf||'–'}/5">${conf}</span>
+      </div>
+      ${note}
+    </div>`;
+  }).join('');
 }
 function closeModal(){ document.getElementById('scrim').classList.remove('show'); modalTarget=null; }
 function syncSegs(){
@@ -302,14 +339,27 @@ async function saveLog(){
   const t=parseInt(document.getElementById('mTime').value);
   // a recorded solve time is the source of truth for the 25-min gate
   if(!isNaN(t)) mGate = t > GATE_MINUTES ? 'fail' : 'pass';
-  const prev=state[nm]||{attempts:0};
+  const noteVal=document.getElementById('mNote').value.trim();
+  const prev=state[nm]||{};
+
+  // Build the version history. Every save is a new, immutable version — the
+  // log is an append-only record of attempts. Records logged before history
+  // existed get backfilled so their already-completed attempt isn't lost.
+  let history=Array.isArray(prev.history)?prev.history.slice():[];
+  if(!history.length && prev.done){
+    history.push({ at:prev.lastAt||todayISO(), gate:prev.gate, conf:prev.conf,
+                   time:prev.time??null, note:prev.note||'' });
+  }
+  history.push({ at:todayISO(), gate:mGate, conf:mConf, time:isNaN(t)?null:t, note:noteVal });
+
   const rec={
     done:true, gate:mGate, conf:mConf,
     time:isNaN(t)?null:t,
-    note:document.getElementById('mNote').value.trim(),
+    note:noteVal,
     lastAt:todayISO(),
     dueAt: mGate==='fail' ? addDays(todayISO(),GATE_MISS_DAYS) : addDays(todayISO(),GATE_PASS_DAYS),
-    attempts:(prev.attempts||0)+1
+    attempts:history.length,
+    history
   };
   state[nm]=rec;
   await persist(nm);
